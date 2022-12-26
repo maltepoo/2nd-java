@@ -5,6 +5,7 @@ import lombok.Setter;
 import lombok.ToString;
 
 import javax.persistence.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -16,19 +17,16 @@ public class Lesson {
     @GeneratedValue
     private Long id;
 
-//    @ManyToOne
-//    @JoinColumn(name = "application_id")
-//    private Application application;
-
     private String className;
 
-    private LocalDateTime classStart;
+    private LocalDate classStart;
 
-    private LocalDateTime classEnd;
+    private LocalDate classEnd;
 
-    private LocalDateTime recruitmentStart;
+    private LocalDate recruitmentStart;
 
-    private LocalDateTime recruitmentEnd;
+    private LocalDate recruitmentEnd;
 
-    private String status;
+    private Boolean status;
+    // true 모집중, false 모집완료
 }

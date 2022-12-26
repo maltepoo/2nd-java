@@ -6,81 +6,64 @@ import com.starters.applyservice.domain.Member;
 import com.starters.applyservice.repository.ApplicationRepository;
 import com.starters.applyservice.repository.LessonRepository;
 import com.starters.applyservice.repository.MemberRepository;
-import com.starters.applyservice.vo.ApplicationVo;
+import com.starters.applyservice.dto.ApplicationDto;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class ApplicationService {
 
     private final MemberRepository memberRepository;
     private final ApplicationRepository applicationRepository;
     private final LessonRepository lessonRepository;
 
-    @Autowired
-    public ApplicationService(ApplicationRepository applicationRepository, MemberRepository memberRepository, LessonRepository lessonRepository) {
-        this.memberRepository = memberRepository;
-        this.applicationRepository = applicationRepository;
-        this.lessonRepository = lessonRepository;
-    }
+    private final String[] APP_STATUS = {"지원 중", "지원완료", "합격", "불합격"};
 
     private boolean isHaveSubmit(Long memberId) {
         List<Application> apps = applicationRepository.findAllByMemberId(memberId);
-        List<Application> generatedApps = apps.stream().filter(a -> a.getStatus().equals("지원완료")).collect(Collectors.toList());
-        if (generatedApps.size() >= 1) {
-            return true;
-        }
-        return false;
+        List<Application> generatedApps = apps.stream().filter(a -> a.getStatus().equals(1)).collect(Collectors.toList());
+        return generatedApps.size() >= 1;
     }
     private Integer countApplications(Long memberId) {
         List<Application> apps = applicationRepository.findAllByMemberId(memberId);
-        List<Application> generatedApps = apps.stream().filter(a -> !a.getStatus().equals("불합격")).collect(Collectors.toList());
+        List<Application> generatedApps = apps.stream().filter(a -> !a.getStatus().equals(3)).collect(Collectors.toList());
         return generatedApps.size();
     }
+
     private boolean isAdmin(Long memberId) {
         Optional<Member> memObj = memberRepository.findById(memberId);
         if (memObj.isPresent()) {
             Boolean status = memObj.get().getIsAdmin();
-            if (status.equals(true)) {
-                return true;
-            } else { return false; }
+            return status.equals(true);
         }
         return false;
     }
+
     private boolean isValidApplication(Long applicationId) {
         Optional<Application> appObj = applicationRepository.findById(applicationId);
-        String appStatus = appObj.get().getStatus();
-        if (appStatus.equals("지원 중")) {
-            return true;
-        }
-        return false;
+        Integer appStatus = appObj.get().getStatus();
+        return appStatus.equals(0);
     }
 
     private Boolean isValidateClass(Long classId) {
         Optional<Lesson> lessonObj = lessonRepository.findById(classId);
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime start = lessonObj.get().getClassStart();
-        LocalDateTime end = lessonObj.get().getClassEnd();
-
-        if (now.isAfter(start) && now.isBefore(end)) {
-            return true;
-        } else {
-            return false;
-        }
+        LocalDate now = LocalDate.now();
+        LocalDate start = lessonObj.get().getClassStart();
+        LocalDate end = lessonObj.get().getClassEnd();
+        return now.isAfter(start) && now.isBefore(end);
     }
 
     private Boolean isValidateMember(Long memberId) {
         Optional<Member> memObj = memberRepository.findById(memberId);
-        if (memObj.isPresent()) {
-            return true;
-        }
-        return false;
+        return memObj.isPresent();
     }
 
     public List<Application> findAllApplications() {
@@ -88,7 +71,7 @@ public class ApplicationService {
         return applicationRepository.findAll();
     }
 
-    public String createApplication(ApplicationVo data, Long memberId, Long classId) {
+    public String createApplication(ApplicationDto data, Long memberId, Long classId) {
         if (countApplications(memberId) >= 5) {
             return "지원서는 최대 5개까지 작성 가능합니다";
         }
@@ -107,7 +90,7 @@ public class ApplicationService {
             if (!data.getFutureCareer().isEmpty()) {
                 app.setFutureCareer(data.getFutureCareer());
             } else { return "포부를 입력해주세요"; }
-            app.setStatus("지원 중");
+            app.setStatus(0);
             applicationRepository.save(app);
         } else {
             return "모집종료된 지원서입니다";
@@ -123,7 +106,7 @@ public class ApplicationService {
         return "지원서 단건조회 실패";
     }
 
-    public String updateApplication(ApplicationVo data, Long applicationId) {
+    public String updateApplication(ApplicationDto data, Long applicationId) {
         Application app = applicationRepository.findById(applicationId).get();
         if (isValidApplication(applicationId)) {
             app.setApplyMotiv(data.getApplyMotiv());
@@ -150,7 +133,7 @@ public class ApplicationService {
         if (isValidApplication(applicationId)) {
             Optional<Application> app = applicationRepository.findById(applicationId);
             if (app.isPresent()) {
-                app.get().setStatus("지원완료");
+                app.get().setStatus(1);
                 applicationRepository.save(app.get());
                 return "지원서 최종제출 완료";
             }
@@ -176,23 +159,33 @@ public class ApplicationService {
         return applicationRepository.findAllByMemberId(targetId).toString();
     }
 
-    public String updateApplicationStatus(Long applicationId, Long memberId, String status) {
-        if (status.equals("합격") || status.equals("불합격")) {
+    public String updateApplicationStatus(Long applicationId, Long memberId, Integer appStatus) {
+        if (appStatus.equals(1) || appStatus.equals(0)) {
             if (!isAdmin(memberId)) {
                 return "현재 유저가 관리자가 아닙니다";
             }
             if (isValidateMember(memberId)) {
                 Optional<Application> appObj = applicationRepository.findById(applicationId);
                 if(appObj.isPresent()) {
-                    appObj.get().setStatus(status);
-                    applicationRepository.save(appObj.get());원
+                    appObj.get().setStatus(appStatus);
+                    applicationRepository.save(appObj.get());
                 } else { return "수정할 지원서가 없습니다"; }
             } else { return "유저가 존재하지 않습니다"; }
         } else { return "지원서의 상태를 합격 또는 불합격으로 설정바랍니다"; }
-        return applicationId.toString() + "번 지원서의 상태 수정을 " + status.toString() + "으로 처리했습니다";
+        return applicationId.toString() + "번 지원서의 상태 수정을 " + APP_STATUS[appStatus] + "으로 처리했습니다";
     }
 
 
+    public void setApplicationStatus() {
+        List<Lesson> lessons = lessonRepository.findAllByRecruitmentEnd(LocalDate.now().minusDays(1).atStartOfDay());
+        for (Lesson lesson:lessons) {
+            lesson.setStatus(false);
+        }
+    }
 
+    public List<Application> searchApplicationByName(String memberName) {
+        List<Application> memberApps = applicationRepository.findAllByMemberNameAndStatusIs(memberName, 1);
+        return memberApps;
+    }
 }
 

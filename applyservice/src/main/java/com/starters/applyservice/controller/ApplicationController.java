@@ -1,19 +1,15 @@
 package com.starters.applyservice.controller;
 
 
-import com.starters.applyservice.domain.Application;
 import com.starters.applyservice.service.ApplicationService;
-import com.starters.applyservice.vo.ApplicationVo;
+import com.starters.applyservice.dto.ApplicationDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Map;
-
 @Slf4j
 @RestController
-@RequestMapping("/api/application")
+@RequestMapping("/application")
 public class ApplicationController {
 
     private final ApplicationService applicationService;
@@ -30,7 +26,7 @@ public class ApplicationController {
     }
 
     @PostMapping("")
-    public String application(@RequestBody ApplicationVo data, Long memberId, Long classId) {
+    public String application(@RequestBody ApplicationDto data, Long memberId, Long classId) {
         // 클래스에 해당하는 지원서를 작성 ✅
         log.info(data.toString());
         return applicationService.createApplication(data, memberId, classId);
@@ -43,7 +39,7 @@ public class ApplicationController {
     }
 
     @PutMapping("/{applicationId}")
-    public String updateApplication(@RequestBody ApplicationVo data, @PathVariable Long applicationId) {
+    public String updateApplication(@RequestBody ApplicationDto data, @PathVariable Long applicationId) {
         // 최종제출 되지 않은 지원서 수정 ✅
         return applicationService.updateApplication(data, applicationId);
     }
@@ -68,8 +64,13 @@ public class ApplicationController {
     }
 
     @PutMapping("/admin/{applicationId}")
-    public String updateApplicationStatus(@PathVariable Long applicationId, Long memberId, String status) {
+    public String updateApplicationStatus(@PathVariable Long applicationId, Long memberId, Integer status) {
         // 관리자의 지원서 내용 합/불합 상태값 변경 ✅
         return applicationService.updateApplicationStatus(applicationId, memberId, status);
+    }
+
+    @GetMapping("/admin/search")
+    public String searchApplicationByName(String memberName) {
+        return applicationService.searchApplicationByName(memberName).toString();
     }
 }

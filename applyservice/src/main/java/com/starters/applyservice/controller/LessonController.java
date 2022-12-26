@@ -4,7 +4,7 @@ import com.starters.applyservice.service.LessonService;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/class")
+@RequestMapping("/lesson")
 public class LessonController {
 
     @GetMapping("")

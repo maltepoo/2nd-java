@@ -1,9 +1,9 @@
-package com.starters.applyservice.vo;
+package com.starters.applyservice.dto;
 
 import lombok.Data;
 
 @Data
-public class ApplicationVo {
+public class ApplicationDto {
 
     private String applyMotiv;
 
