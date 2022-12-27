@@ -1,4 +1,4 @@
-package com.starters.applyservice.domain;
+package com.starters.applyservice.entity;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -30,5 +30,4 @@ public class Application {
     private Integer status;
     // 0 1 2 3
     // 지원 중, 지원완료, 합격, 불합격
-
 }

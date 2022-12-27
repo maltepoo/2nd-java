@@ -1,8 +1,8 @@
 package com.starters.applyservice.service;
 
-import com.starters.applyservice.domain.Application;
-import com.starters.applyservice.domain.Lesson;
-import com.starters.applyservice.domain.Member;
+import com.starters.applyservice.entity.Application;
+import com.starters.applyservice.entity.Lesson;
+import com.starters.applyservice.entity.Member;
 import com.starters.applyservice.repository.ApplicationRepository;
 import com.starters.applyservice.repository.LessonRepository;
 import com.starters.applyservice.repository.MemberRepository;
@@ -12,7 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -47,10 +46,9 @@ public class ApplicationService {
         return false;
     }
 
-    private boolean isValidApplication(Long applicationId) {
-        Optional<Application> appObj = applicationRepository.findById(applicationId);
-        Integer appStatus = appObj.get().getStatus();
-        return appStatus.equals(0);
+    private Application isValidApplication(Long applicationId) throws RuntimeException {
+        Application appObj = applicationRepository.findById(applicationId).orElseThrow(() -> new RuntimeException("지원서가 없음"));
+        return appObj;
     }
 
     private Boolean isValidateClass(Long classId) {
@@ -107,8 +105,8 @@ public class ApplicationService {
     }
 
     public String updateApplication(ApplicationDto data, Long applicationId) {
-        Application app = applicationRepository.findById(applicationId).get();
-        if (isValidApplication(applicationId)) {
+        Application app = isValidApplication(applicationId);
+        if (app.getStatus().equals(0)) {
             app.setApplyMotiv(data.getApplyMotiv());
             app.setFutureCareer(data.getFutureCareer());
             applicationRepository.save(app);
@@ -119,26 +117,30 @@ public class ApplicationService {
     }
 
     public String deleteApplication(Long applicationId) {
-        if (isValidApplication(applicationId)) {
-            Optional<Application> app = applicationRepository.findById(applicationId);
-            if (app.isPresent()) {
-                applicationRepository.delete(app.get());
-                return "지원서 삭제 성공";
-            }
-            return "지원서 삭제 실패";
-        } return "삭제할 지원서가 없음";
+        Application app = isValidApplication(applicationId);
+        if (app.getStatus().equals(0)) {
+            applicationRepository.delete(app);
+            return "지원서 삭제 성공";
+        }
+        return "지원서 삭제 실패";
     }
 
     public String submitApplication(Long applicationId) {
-        if (isValidApplication(applicationId)) {
-            Optional<Application> app = applicationRepository.findById(applicationId);
-            if (app.isPresent()) {
-                app.get().setStatus(1);
-                applicationRepository.save(app.get());
-                return "지원서 최종제출 완료";
+        // TODO: 모집기간이 동일한 수업에는 3개 이상의 지원서를 지원완료 할 수 없습니다.
+        // TODO: 교육기간이 동일한 수업에는 3개 이상의 지원서를 지원완료 할 수 없습니다.
+        Application app = isValidApplication(applicationId);
+        List<Application> applys = applicationRepository.findAllByMemberIdAndLessonId(app.getMember().getId(), app.getLesson().getId());
+        for (Application apply: applys) {
+            if (apply.getStatus().equals(1)) {
+                return "이미 지원완료한 지원서가 있습니다";
             }
-            return "지원서 최종제출 실패";
-        } return "지원서 최종제출 실패";
+        }
+        if (app.getStatus().equals(0)) { // 현재 지원중(0)인 지원서가 있으면
+            app.setStatus(1);
+            applicationRepository.save(app);
+            return "지원서 최종제출 완료";
+        }
+        return "지원서 최종제출 실패";
     }
 
 
@@ -183,8 +185,8 @@ public class ApplicationService {
         }
     }
 
-    public List<Application> searchApplicationByName(String memberName) {
-        List<Application> memberApps = applicationRepository.findAllByMemberNameAndStatusIs(memberName, 1);
+    public List<ApplicationDto> searchApplicationByName(String memberName) {
+        List<ApplicationDto> memberApps = applicationRepository.findAllByMemberNameAndStatusIs(memberName, 1).stream().map(app -> new ApplicationDto(app.getId(), app.getMember().getId(), app.getLesson().getId(), app.getApplyMotiv(), app.getFutureCareer(), app.getStatus())).collect(Collectors.toList());
         return memberApps;
     }
 }

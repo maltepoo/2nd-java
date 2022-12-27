@@ -1,4 +1,4 @@
-package com.starters.applyservice.domain;
+package com.starters.applyservice.entity;
 
 import lombok.Getter;
 import lombok.Setter;
