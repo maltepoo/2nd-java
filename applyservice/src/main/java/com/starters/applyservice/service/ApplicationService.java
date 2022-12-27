@@ -1,5 +1,6 @@
 package com.starters.applyservice.service;
 
+import com.starters.applyservice.dto.RequestApplicationDto;
 import com.starters.applyservice.entity.Application;
 import com.starters.applyservice.entity.Lesson;
 import com.starters.applyservice.entity.Member;
@@ -7,6 +8,7 @@ import com.starters.applyservice.repository.ApplicationRepository;
 import com.starters.applyservice.repository.LessonRepository;
 import com.starters.applyservice.repository.MemberRepository;
 import com.starters.applyservice.dto.ApplicationDto;
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,72 +25,32 @@ public class ApplicationService {
     private final MemberRepository memberRepository;
     private final ApplicationRepository applicationRepository;
     private final LessonRepository lessonRepository;
-
     private final String[] APP_STATUS = {"지원 중", "지원완료", "합격", "불합격"};
 
-    private boolean isHaveSubmit(Long memberId) {
-        List<Application> apps = applicationRepository.findAllByMemberId(memberId);
-        List<Application> generatedApps = apps.stream().filter(a -> a.getStatus().equals(1)).collect(Collectors.toList());
-        return generatedApps.size() >= 1;
-    }
-    private Integer countApplications(Long memberId) {
-        List<Application> apps = applicationRepository.findAllByMemberId(memberId);
-        List<Application> generatedApps = apps.stream().filter(a -> !a.getStatus().equals(3)).collect(Collectors.toList());
-        return generatedApps.size();
-    }
-
-    private boolean isAdmin(Long memberId) {
-        Optional<Member> memObj = memberRepository.findById(memberId);
-        if (memObj.isPresent()) {
-            Boolean status = memObj.get().getIsAdmin();
-            return status.equals(true);
-        }
-        return false;
-    }
-
-    private Application isValidApplication(Long applicationId) throws RuntimeException {
-        Application appObj = applicationRepository.findById(applicationId).orElseThrow(() -> new RuntimeException("지원서가 없음"));
-        return appObj;
-    }
-
-    private Boolean isValidateClass(Long classId) {
-        Optional<Lesson> lessonObj = lessonRepository.findById(classId);
-        LocalDate now = LocalDate.now();
-        LocalDate start = lessonObj.get().getClassStart();
-        LocalDate end = lessonObj.get().getClassEnd();
-        return now.isAfter(start) && now.isBefore(end);
-    }
-
-    private Boolean isValidateMember(Long memberId) {
-        Optional<Member> memObj = memberRepository.findById(memberId);
-        return memObj.isPresent();
-    }
-
-    public List<Application> findAllApplications() {
-        log.info(applicationRepository.findAll().toString());
-        return applicationRepository.findAll();
-    }
-
-    public String createApplication(ApplicationDto data, Long memberId, Long classId) {
-        if (countApplications(memberId) >= 5) {
+    public String createApplication(RequestApplicationDto data, Long memberId, Long classId) {
+        if (countApplications(memberId, classId)) {
             return "지원서는 최대 5개까지 작성 가능합니다";
         }
-        if (isHaveSubmit(memberId)) {
+        if (isHaveSubmit(memberId, classId)) {
             return "이미 지원완료한 지원서가 있습니다";
         }
         if (isValidateClass(classId)) {
             Application app = new Application();
-            app.setLesson(lessonRepository.findById(classId).get());
-            if (isValidateMember(memberId)) {
-                app.setMember(memberRepository.findById(memberId).get());
-            } else { return "해당 지원자가 없음"; }
+            Lesson lesson = lessonRepository.findById(classId).orElseThrow(() -> new RuntimeException("수업이 없음"));
+            Member member = memberRepository.findById(memberId).orElseThrow(() -> new RuntimeException("멤버가 없음"));
+
+            app.setLesson(lesson);
+            app.setMember(member);
+
             if (!data.getApplyMotiv().isEmpty()) {
                 app.setApplyMotiv(data.getApplyMotiv());
             } else { return "지원동기를 입력해주세요"; }
             if (!data.getFutureCareer().isEmpty()) {
                 app.setFutureCareer(data.getFutureCareer());
             } else { return "포부를 입력해주세요"; }
+
             app.setStatus(0);
+
             applicationRepository.save(app);
         } else {
             return "모집종료된 지원서입니다";
@@ -104,7 +66,7 @@ public class ApplicationService {
         return "지원서 단건조회 실패";
     }
 
-    public String updateApplication(ApplicationDto data, Long applicationId) {
+    public String updateApplication(RequestApplicationDto data, Long applicationId) {
         Application app = isValidApplication(applicationId);
         if (app.getStatus().equals(0)) {
             app.setApplyMotiv(data.getApplyMotiv());
@@ -126,22 +88,80 @@ public class ApplicationService {
     }
 
     public String submitApplication(Long applicationId) {
-        // TODO: 모집기간이 동일한 수업에는 3개 이상의 지원서를 지원완료 할 수 없습니다.
-        // TODO: 교육기간이 동일한 수업에는 3개 이상의 지원서를 지원완료 할 수 없습니다.
         Application app = isValidApplication(applicationId);
-        List<Application> applys = applicationRepository.findAllByMemberIdAndLessonId(app.getMember().getId(), app.getLesson().getId());
-        for (Application apply: applys) {
-            if (apply.getStatus().equals(1)) {
-                return "이미 지원완료한 지원서가 있습니다";
+
+        // 제출하는 현재 지원서가 지원중인지 확인
+        if (app.getStatus().equals(0)) {
+            //현재 제출하는 수업에 최종제출 한 지원서가 있는지 확인
+            List<Application> applys = applicationRepository.findAllByMemberIdAndLessonId(app.getMember().getId(), app.getLesson().getId());
+            for (Application apply: applys) {
+                if (apply.getStatus().equals(1)) {
+                    return "이미 지원완료한 지원서가 있습니다";
+                }
             }
-        }
-        if (app.getStatus().equals(0)) { // 현재 지원중(0)인 지원서가 있으면
+            // 모집기간이 동일한 수업에는 3개 이상의 지원서를 지원완료 했는지 확인
+            if (isMultipleApplicationSubmittedForSameRecruitmentPeriod(app)) {
+                return "이미 모집기간이 동일한 3개의 수업에 지원했습니다";
+            };
+            // 교육기간이 동일한 수업에는 3개 이상의 지원서를 지원완료
+            if (isMultipleApplicationSubmittedForSameTeachingPeriod(app)) {
+                return "이미 수업기간이 동일한 3개의 수업에 지원했습니다";
+            }
+
             app.setStatus(1);
             applicationRepository.save(app);
             return "지원서 최종제출 완료";
         }
         return "지원서 최종제출 실패";
     }
+
+    private boolean isHaveSubmit(Long memberId, Long classId) {
+        // 지원하는 수업에 이미 제출완료된 지원서가 있는지 확인
+        List<Application> applys = applicationRepository.findAllByMemberIdAndLessonId(memberId, classId).stream().filter(a -> a.getStatus().equals(1)).collect(Collectors.toList());
+        return applys.size() >= 1;
+    }
+    private boolean countApplications(Long memberId, Long classId) {
+        List<Application> applys = applicationRepository.findAllByMemberIdAndLessonId(memberId, classId);
+        return applys.size() >= 5;
+    }
+
+    private boolean isAdmin(Long memberId) {
+        Optional<Member> memObj = memberRepository.findById(memberId);
+        if (memObj.isPresent()) {
+            Boolean status = memObj.get().getIsAdmin();
+            return status.equals(true);
+        }
+        return false;
+    }
+
+    private Application isValidApplication(Long applicationId) throws RuntimeException {
+        Application appObj = applicationRepository.findById(applicationId).orElseThrow(() -> new RuntimeException("지원서가 없음"));
+        return appObj;
+    }
+
+    private Boolean isValidateClass(Long classId) {
+        Lesson lesson = lessonRepository.findById(classId).orElseThrow(() -> new RuntimeException("지원할 수업이 없습니다."));
+        return lesson.getStatus();
+    }
+
+    private Boolean isValidateMember(Long memberId) {
+        Optional<Member> memObj = memberRepository.findById(memberId);
+        return memObj.isPresent();
+    }
+
+    public List<Application> findAllApplications() {
+        log.info(applicationRepository.findAll().toString());
+        return applicationRepository.findAll();
+    }
+
+    private Boolean isMultipleApplicationSubmittedForSameRecruitmentPeriod(Application apply) {
+        List<Lesson> lessons = lessonRepository.findAllByRecruitmentStartAndRecruitmentEnd(apply.getLesson().getRecruitmentStart(), apply.getLesson().getRecruitmentEnd());
+        return lessons.size() > 3;
+    };
+    private Boolean isMultipleApplicationSubmittedForSameTeachingPeriod(Application apply) {
+        List<Lesson> lessons = lessonRepository.findAllByClassStartAndClassEnd(apply.getLesson().getClassStart(), apply.getLesson().getClassEnd());
+        return lessons.size() > 3;
+    };
 
 
     /**

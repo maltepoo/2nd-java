@@ -1,11 +1,10 @@
 package com.starters.applyservice.controller;
 
-
-import com.starters.applyservice.entity.Application;
+import com.starters.applyservice.dto.RequestApplicationDto;
 import com.starters.applyservice.service.ApplicationService;
 import com.starters.applyservice.dto.ApplicationDto;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,17 +12,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 
-@Slf4j
 @RestController
 @RequestMapping("/application")
+@RequiredArgsConstructor
 public class ApplicationController {
 
     private final ApplicationService applicationService;
-
-    @Autowired
-    public ApplicationController(ApplicationService applicationService) {
-        this.applicationService = applicationService;
-    }
 
     @GetMapping("")
     public String getAllApplications() {
@@ -32,9 +26,9 @@ public class ApplicationController {
     }
 
     @PostMapping("")
-    public String application(@RequestBody ApplicationDto data, Long memberId, Long classId) {
+    public String application(@RequestBody RequestApplicationDto data, @RequestParam Long memberId, @RequestParam Long classId) {
         // 클래스에 해당하는 지원서를 작성
-        log.info(data.toString());
+        System.out.println("data = " + data);
         return applicationService.createApplication(data, memberId, classId);
     }
 
@@ -45,7 +39,7 @@ public class ApplicationController {
     }
 
     @PutMapping("/{applicationId}")
-    public String updateApplication(@RequestBody ApplicationDto data, @PathVariable Long applicationId) {
+    public String updateApplication(@RequestBody RequestApplicationDto data, @PathVariable Long applicationId) {
         // 최종제출 되지 않은 지원서 수정
         return applicationService.updateApplication(data, applicationId);
     }
@@ -62,21 +56,23 @@ public class ApplicationController {
         return applicationService.submitApplication(applicationId);
     }
 
-    // 관리자 전용 api
+    /**
+     * 관리자 전용 API
+     * */
     @GetMapping("/admin/{targetId}")
-    public String getAllApplicationStatus(@PathVariable Long targetId, Long memberId) {
+    public String getAllApplicationStatus(@PathVariable Long targetId, @RequestParam Long memberId) {
         // 관리자의 회원별 모든 지원서 상태확인
         return applicationService.findAllApplicationByMember(targetId, memberId);
     }
 
     @PutMapping("/admin/{applicationId}")
-    public String updateApplicationStatus(@PathVariable Long applicationId, Long memberId, Integer status) {
+    public String updateApplicationStatus(@PathVariable Long applicationId, @RequestParam Long memberId, @RequestParam Integer status) {
         // 관리자의 지원서 내용 합/불합 상태값 변경
         return applicationService.updateApplicationStatus(applicationId, memberId, status);
     }
 
     @GetMapping("/admin/search")
-    public ResponseEntity searchApplicationByName(String memberName) {
+    public ResponseEntity searchApplicationByName(@RequestParam String memberName) {
         // 완료된 지원서는 회원이름으로 검색이 가능
         List<ApplicationDto> res = applicationService.searchApplicationByName(memberName);
         return ResponseEntity.status(HttpStatus.OK).body(res);

@@ -21,10 +21,4 @@ public class ApplicationDto {
         this.futureCareer = futureCareer;
         this.status = status;
     }
-
-    public ApplicationDto(String applyMotiv, String futureCareer, Integer status) {
-        this.applyMotiv = applyMotiv;
-        this.futureCareer = futureCareer;
-        this.status = status;
-    }
 }

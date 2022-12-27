@@ -1,29 +1,33 @@
 package com.starters.applyservice.controller;
 
 import com.starters.applyservice.service.LessonService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/lesson")
+@RequiredArgsConstructor
 public class LessonController {
+
+    private final LessonService lessonService;
 
     @GetMapping("")
     public String getAllClass() {
-        return LessonService.findAllClass();
+        return lessonService.findAllClass();
     }
 
     @PutMapping("")
     public String updateClass(Long classId) {
-        return LessonService.updateClass(classId);
+        return lessonService.updateClass(classId);
     }
 
     @DeleteMapping("")
     public String deleteClass(Long classId) {
-        return LessonService.deleteClass(classId);
+        return lessonService.deleteClass(classId);
     }
 
     @PutMapping("/status")
     public String updateClassStatus(Long classId, String status) {
-        return LessonService.updateClassStatus(classId, status);
+        return lessonService.updateClassStatus(classId, status);
     }
 }
