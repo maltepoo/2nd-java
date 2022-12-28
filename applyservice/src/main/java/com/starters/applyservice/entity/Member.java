@@ -21,7 +21,9 @@ public class Member {
 
     private String name;
 
-    private Boolean isAdmin;
+    @Enumerated(EnumType.STRING)
+    private Role isAdmin;
 
     private String contacts;
 }
+

@@ -1,12 +1,11 @@
 package com.starters.applyservice.controller;
 
 import com.starters.applyservice.dto.RequestApplicationDto;
+import com.starters.applyservice.dto.ResponseDto;
 import com.starters.applyservice.service.ApplicationService;
 import com.starters.applyservice.dto.ApplicationDto;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -60,21 +59,22 @@ public class ApplicationController {
      * 관리자 전용 API
      * */
     @GetMapping("/admin/{targetId}")
-    public String getAllApplicationStatus(@PathVariable Long targetId, @RequestParam Long memberId) {
+    public ResponseDto getAllApplicationStatus(@PathVariable Long targetId, @RequestParam Long memberId) {
         // 관리자의 회원별 모든 지원서 상태확인
-        return applicationService.findAllApplicationByMember(targetId, memberId);
+        List<ApplicationDto> res = applicationService.findAllApplicationByMember(targetId, memberId);
+        return new ResponseDto<>(HttpStatus.OK, "모든 지원서 가져오기 성공", res);
     }
 
     @PutMapping("/admin/{applicationId}")
-    public String updateApplicationStatus(@PathVariable Long applicationId, @RequestParam Long memberId, @RequestParam Integer status) {
+    public String updateApplicationStatus(@PathVariable Long applicationId, @RequestParam Long memberId, @RequestParam String status) {
         // 관리자의 지원서 내용 합/불합 상태값 변경
         return applicationService.updateApplicationStatus(applicationId, memberId, status);
     }
 
     @GetMapping("/admin/search")
-    public ResponseEntity searchApplicationByName(@RequestParam String memberName) {
+    public ResponseDto searchApplicationByName(@RequestParam String memberName) {
         // 완료된 지원서는 회원이름으로 검색이 가능
         List<ApplicationDto> res = applicationService.searchApplicationByName(memberName);
-        return ResponseEntity.status(HttpStatus.OK).body(res);
+        return new ResponseDto<>(HttpStatus.OK, "지원 완료된 지원서 검색성공", res);
     }
 }

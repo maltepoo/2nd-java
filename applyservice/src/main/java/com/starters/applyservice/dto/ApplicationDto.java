@@ -1,5 +1,6 @@
 package com.starters.applyservice.dto;
 
+import com.starters.applyservice.entity.ApplyStatus;
 import lombok.Data;
 import lombok.ToString;
 
@@ -11,9 +12,9 @@ public class ApplicationDto {
     private Long lessonId;
     private String applyMotiv;
     private String futureCareer;
-    private int status;
+    private ApplyStatus status;
 
-    public ApplicationDto(Long appId, Long memberId, Long lessonId, String applyMotiv, String futureCareer, Integer status) {
+    public ApplicationDto(Long appId, Long memberId, Long lessonId, String applyMotiv, String futureCareer, ApplyStatus status) {
         this.appId = appId;
         this.memberId = memberId;
         this.lessonId = lessonId;

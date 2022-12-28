@@ -28,7 +28,10 @@ public class Application {
 
     private String futureCareer;
 
-    private Integer status;
+    @Enumerated(EnumType.STRING)
+    private ApplyStatus status;
     // 0 1 2 3
     // 지원 중, 지원완료, 합격, 불합격
+    // APPLYING, SUBMITTED, ACCEPTED, REJECTED
 }
+
